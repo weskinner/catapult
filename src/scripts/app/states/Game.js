@@ -32,6 +32,7 @@ export default class Game extends Phaser.State {
 
   create () {
     const { centerX: x, centerY: y } = this.world;
+    this.game.physics.startSystem(Phaser.Physics.ARCADE);
 
     // Tilemap
     this.map = this.add.tilemap('catapultMap');
@@ -73,6 +74,12 @@ export default class Game extends Phaser.State {
     this.marker.visible = false;
     this.game.input.addMoveCallback(this.updateMarker, this);
 
+    // enemy units
+    this.enemyGroup = this.add.group();
+    this.game.physics.enable(this.enemyGroup);
+    this.enemyBase = this.enemyGroup.create(32*8, 32*15, 'tiles', this.UNIT.Base);
+    this.game.physics.arcade.enable(this.enemyGroup);
+    this.game.physics.arcade.enable(this.enemyBase);
 
   }
 
@@ -80,9 +87,34 @@ export default class Game extends Phaser.State {
     this.marker.x = this.layer.getTileX(this.game.input.activePointer.worldX) * 32;
     this.marker.y = this.layer.getTileY(this.game.input.activePointer.worldY) * 32;
 
-    if(this.game.input.mousePointer.isDown && this.isPlacingUnit) {
-      this.placeUnit(this.marker.x, this.marker.y);
+    if(this.game.input.mousePointer.isDown) {
+      if(this.isPlacingUnit) {
+        this.placeUnit(this.marker.x, this.marker.y);
+      } else if (this.isMarkingAttack) {
+        this.attack(this.marker.x, this.marker.y);
+      }
     }
+  }
+
+  attack(x, y) {
+    var event = this.game.time.events.repeat(1000, Infinity, () => {
+      var boulder = this.add.sprite(this.spriteMarkingAttack.x, this.spriteMarkingAttack.y, 'tiles', 0);
+//       var tween = this.add.tween(boulder).to({x: x, y: y}, 1000, null, true);
+//       var signal = new Phaser.Signal();
+//       signal.add(() => { boulder.destroy(); });
+//       tween.onComplete = signal;
+
+
+
+      this.game.physics.arcade.enable(boulder);
+      this.game.physics.arcade.moveToXY(boulder, x, y);
+      this.game.physics.arcade.collide(boulder, this.enemyBase);
+    });
+    this.marker.visible = false;
+  }
+
+  boulderHitEnemy(boulder, enemyGroup) {
+    console.log(boulder);
   }
 
   placeUnit(x, y) {
@@ -96,6 +128,9 @@ export default class Game extends Phaser.State {
       case this.UNIT.Mine:
         this.setupMine(sprite);
         break;
+      case this.UNIT.Catapult:
+        this.setupCatapult(sprite);
+        break;
     }
 
     this.isPlacingUnit = false;
@@ -104,6 +139,17 @@ export default class Game extends Phaser.State {
 
   setupMine(sprite) {
     var event = this.game.time.events.repeat(1000, Infinity, () => {this.purse += 1});
+  }
+
+  setupCatapult(sprite) {
+    sprite.inputEnabled = true;
+    sprite.events.onInputDown.add(this.catapultClicked, this);
+  }
+
+  catapultClicked(sprite) {
+    this.isMarkingAttack = true;
+    this.marker.visible = true;
+    this.spriteMarkingAttack = sprite;
   }
 
   selectUnit(unit) {
